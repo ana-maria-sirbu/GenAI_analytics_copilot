@@ -27,7 +27,7 @@ the answer, and it quietly keeps track of how certain it is in each reply.
 - [Technical reference](#technical-reference)
   - [Project layout](#project-layout)
   - [Configuration reference](#configuration-reference)
-  - [How the explanation is shown (and the uncertainty gate)](#how-the-explanation-is-shown-and-the-certainty-gate)
+  - [How the explanation is shown](#how-the-explanation-is-shown-and-the-certainty-gate)
   - [Uncertainty quantification](#uncertainty-quantification)
   - [Testing](#testing)
 ---
