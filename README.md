@@ -27,8 +27,8 @@ the answer, and it quietly keeps track of how certain it is in each reply.
 - [Technical reference](#technical-reference)
   - [Project layout](#project-layout)
   - [Configuration reference](#configuration-reference)
-  - [How the explanation is shown (and the certainty gate)](#how-the-explanation-is-shown-and-the-certainty-gate)
-  - [Certainty quantification](#certainty-quantification)
+  - [How the explanation is shown (and the uncertainty gate)](#how-the-explanation-is-shown-and-the-certainty-gate)
+  - [Uncertainty quantification](#uncertainty-quantification)
   - [Testing](#testing)
 ---
 
@@ -43,7 +43,7 @@ the answer, and it quietly keeps track of how certain it is in each reply.
 - **Can explain its reasoning.** It can reveal a 
   step-by-step explanation of *how* it reached the answer.
 - **Knows how sure it is.** For every answer that comes from the data, it
-  calculates a behind-the-scenes certainty score and uses it to decide whether
+  calculates a behind-the-scenes uncertainty and uses it to decide whether
   to offer the explanation.
 - **Remembers the conversation** so you can ask follow-up questions.
 
@@ -101,7 +101,7 @@ The project is built in **Python** using:
 - **SQLite** — the spreadsheet is loaded into this small, fast, read-only database
   so the assistant can search it.
 - **PostgreSQL** — a separate database where every interaction is logged.
-- **Certainty quantification** — measures how certain the assistant is about each answer.
+- **Uncertainty quantification** — measures how uncertain the assistant is about each answer.
 
 ---
 
@@ -109,7 +109,7 @@ The project is built in **Python** using:
 
 The diagram below shows the whole system end-to-end: the **Streamlit** chat UI, the
 **LangChain** SQL agent (OpenAI **gpt-5.4-mini**) with its SQL tools, the Superstore
-dataset loaded into a read-only **SQLite** warehouse and the **certainty
+dataset loaded into a read-only **SQLite** warehouse and the **uncertainty
 quantification** (observed-consistency resampling with an NLI model, plus self-reflection).
 
 ![System architecture of the GenAI Analytics Copilot](architecture.png)
@@ -310,15 +310,15 @@ You don't need to repeat the whole setup. Each time you want to use the app:
 
 ### Troubleshooting
 
-| What you see                                                  | What it usually means | How to fix it |
-|---------------------------------------------------------------|-----------------------|----------------|
-| `python` or `pip` "is not recognized"                         | Python isn't on your PATH | Reinstall Python (Step 1) and **tick "Add Python to PATH"**, then restart PowerShell |
-| `running scripts is disabled on this system`                  | Windows is blocking the sandbox activation | Run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned`, then retry |
+| What you see                                                | What it usually means | How to fix it |
+|-------------------------------------------------------------|-----------------------|----------------|
+| `python` or `pip` "is not recognized"                       | Python isn't on your PATH | Reinstall Python (Step 1) and **tick "Add Python to PATH"**, then restart PowerShell |
+| `running scripts is disabled on this system`                | Windows is blocking the sandbox activation | Run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned`, then retry |
 | `Failed to start the GenAI analytics copilot` on the web page | The app couldn't reach your database or OpenAI | Re-check `DATABASE_URL` and `OPENAI_API_KEY` in your `.env` (no extra spaces or quotes); make sure the database string is the full `postgresql://…` line |
-| It says the workbook can't be found                           | The Excel file path is wrong | Make sure `(US)Sample-Superstore.xlsx` is in the project folder and `EXCEL_FILE_PATH` in `.env` matches its name |
-| The answer appears but there's no certainty score             | The HuggingFace token is missing or invalid | Add a valid `HF_API_TOKEN` (Step 8), or switch `NLI_BACKEND=local` in `.env` (this downloads the AI libraries instead) |
-| An OpenAI error mentioning a model name                       | Your account can't use the model in `.env` | Change `OPENAI_MODEL` in `.env` to a model your account can access |
-| The browser didn't open                                       | Normal sometimes | Open it yourself and go to http://localhost:8501 |
+| It says the workbook can't be found                         | The Excel file path is wrong | Make sure `(US)Sample-Superstore.xlsx` is in the project folder and `EXCEL_FILE_PATH` in `.env` matches its name |
+| The answer appears but there's no certainty score           | The HuggingFace token is missing or invalid | Add a valid `HF_API_TOKEN` (Step 8), or switch `NLI_BACKEND=local` in `.env` (this downloads the AI libraries instead) |
+| An OpenAI error mentioning a model ![img.png](img.png)name  | Your account can't use the model in `.env` | Change `OPENAI_MODEL` in `.env` to a model your account can access |
+| The browser didn't open                                     | Normal sometimes | Open it yourself and go to http://localhost:8501 |
 
 ---
 
@@ -350,7 +350,7 @@ side by side (see `compose.yaml`).
 OpenAI's LLM is a paid service — you pay OpenAI a small amount each time the
 assistant answers a question. One things to know:
 
-- **The certainty feature multiplies the cost.** To measure how sure it is, the
+- **The uncertainty quantification multiplies the cost.** To measure how sure it is, the
   assistant quietly answers each question several extra times and runs a few
   self-checks — roughly **20+ extra AI calls per data question** with the default
   settings. If you want to cut cost, lower `CONFIDENCE_K` and `CONFIDENCE_ROUNDS`
@@ -405,7 +405,7 @@ The rest of this document is for developers and researchers working on the code.
     │   ├── tokens.py           Token counting + history truncation
     │   ├── steps.py            Prettifies intermediate agent steps
     │   └── explainer.py        Second LLM pass that simplifies steps
-    ├── uncertainty/            Certainty quantification (BSDetector)
+    ├── uncertainty/            Uncertainty quantification (BSDetector)
     │   ├── nli.py              NLI wrapper (local + inference, contradiction probs)
     │   ├── observed.py         Observed Consistency O
     │   ├── reflection.py       Self-Reflection Certainty S
@@ -457,12 +457,12 @@ All settings are read from environment variables (or a `.env` file) via
 > (`(US)Sample-Superstore.xlsx`), which is where the file actually lives. Keep the
 > setting and the file's location in sync.
 
-## How the explanation is shown (and the certainty gate)
+## How the explanation is shown
 
 `app/ui/chat.py` decides whether the step-by-step explanation is shown at all or
 hidden behind a **"See explanation"** button.
 
-## Certainty quantification
+## Uncertainty quantification
 
 Each answer that is **grounded in a database query** is given a numeric certainty
 score, following Chen & Mueller (2024), *"Quantifying Uncertainty in Answers from any Language Model and
@@ -524,7 +524,7 @@ pytest -m "not db"     # pure unit tests only (no Postgres needed)
 pytest --cov=app       # with coverage
 ```
 
-Pure tests cover `tokens.py`, `steps.py`, and the certainty math in
+Pure tests cover `tokens.py`, `steps.py`, and the uncertainty math in
 `app/uncertainty/` (the NLI model and LLM calls are injected as fakes). The
 DB-backed test (`tests/test_repository.py`, marked `db`) spins up an ephemeral
 PostgreSQL via `pytest-postgresql`, runs `initialize_schema`, and exercises the
